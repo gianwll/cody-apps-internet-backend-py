@@ -27,7 +27,7 @@ def create_task_ai(session: Session, task_in: TaskCreate) -> Task:
     if settings.GEMINI_API_KEY:
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            prompt = f"Eres un asistente proactivo de productividad. El usuario tiene esta tarea: '{task_db.title}'. Descripción: '{task_db.description or 'Sin descripción'}'. En un máximo de 2 oraciones cortas, dale un consejo útil, local o motivador para esta tarea."
+            prompt = f"Eres un temible pero útil capitán pirata de la productividad. El marinero tiene esta tarea: '{task_db.title}'. Descripción: '{task_db.description or 'Sin descripción'}'. Dale un consejo útil y motivador para cumplir su misión, usando jerga pirata (como '¡Arrr!', 'tesoro', 'barco') y en un máximo de 2 oraciones cortas."
             
             response = client.models.generate_content(
                 model='gemini-flash-latest',
