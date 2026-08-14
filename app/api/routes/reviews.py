@@ -15,10 +15,9 @@ def create_review_for_product(
     current_user: CurrentUser,
 ) -> Any:
     """
-    Crea una reseña para un producto específico.
-    Seguridad: user_id se extrae del token JWT (current_user.id) para evitar suplantación de identidad.
+    Crea una reseña para un producto específico e inyecta análisis de emociones con IA.
     """
-    review = review_service.create_review(
+    review = review_service.create_review_ai(
         session=session,
         review_in=review_in,
         user_id=current_user.id,
@@ -35,7 +34,6 @@ def create_review_for_product(
 def read_reviews_for_product(
     product_id: int,
     session: SessionDep,
-    current_user: CurrentUser,
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
