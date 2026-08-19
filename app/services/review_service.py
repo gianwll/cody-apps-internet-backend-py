@@ -23,7 +23,9 @@ def create_review_ai(session: Session, review_in: ReviewCreate, user_id: int, pr
     review_db = Review.model_validate(review_in, update={"user_id": user_id, "product_id": product_id})
 
     # --- 🤖 EFECTO WOW: ANÁLISIS DE EMOCIONES E INTELIGENCIA ARTIFICIAL ---
-    if settings.GEMINI_API_KEY:
+    if not settings.GEMINI_API_KEY:
+        review_db.ai_sentiment_analysis = "Configura una GEMINI_API_KEY válida de https://aistudio.google.com/ en tu archivo .env"
+    else:
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             prompt = (
@@ -35,14 +37,21 @@ def create_review_ai(session: Session, review_in: ReviewCreate, user_id: int, pr
                 f"y brinda un análisis empático relacionando la reseña con el producto."
             )
             
-            response = client.models.generate_content(
-                model='gemini-flash-latest',
-                contents=prompt
-            )
-            review_db.ai_sentiment_analysis = response.text.strip()
+            for model_name in ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        review_db.ai_sentiment_analysis = response.text.strip()
+                        break
+                except Exception as inner_err:
+                    print(f"Intento con {model_name} falló: {inner_err}")
+                    continue
         except Exception as e:
             print(f"Error generando análisis de emociones IA: {e}")
-            pass
+            review_db.ai_sentiment_analysis = f"Error al conectar con Gemini AI: {e}"
     # -------------------------------------------------------------------
 
     session.add(review_db)

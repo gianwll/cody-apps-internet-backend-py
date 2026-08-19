@@ -24,19 +24,28 @@ def create_task_ai(session: Session, task_in: TaskCreate) -> Task:
     task_db = Task.model_validate(task_in)
     
     # --- 🤖 EFECTO WOW: SUGERENCIA DE INTELIGENCIA ARTIFICIAL ---
-    if settings.GEMINI_API_KEY:
+    if not settings.GEMINI_API_KEY:
+        task_db.ai_suggestion = "Configura una GEMINI_API_KEY válida de https://aistudio.google.com/ en tu archivo .env"
+    else:
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            prompt = f"Eres un temible pero útil capitán pirata de la productividad. El marinero tiene esta tarea: '{task_db.title}'. Descripción: '{task_db.description or 'Sin descripción'}'. Dale un consejo útil y motivador para cumplir su misión, usando jerga pirata (como '¡Arrr!', 'tesoro', 'barco') y en un máximo de 2 oraciones cortas."
+            prompt = f"Eres un asistente de productividad amable, profesional y muy ordenado. El usuario tiene esta tarea: '{task_db.title}'. Descripción: '{task_db.description or 'Sin descripción'}'. Dale un consejo práctico, claro y motivador para cumplirla con éxito, en un máximo de 2 oraciones cortas."
             
-            response = client.models.generate_content(
-                model='gemini-flash-latest',
-                contents=prompt
-            )
-            task_db.ai_suggestion = response.text.strip()
+            for model_name in ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        task_db.ai_suggestion = response.text.strip()
+                        break
+                except Exception as inner_err:
+                    print(f"Intento con {model_name} falló: {inner_err}")
+                    continue
         except Exception as e:
             print(f"Error generando sugerencia IA: {e}")
-            pass
+            task_db.ai_suggestion = f"Error al conectar con Gemini AI: {e}"
     # ------------------------------------------------------------
     
     session.add(task_db)
