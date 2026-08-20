@@ -58,47 +58,67 @@ def suggest_task_ai(prompt: str) -> dict:
     import os
     from openai import OpenAI
 
-    api_key = settings.ZHIPU_API_KEY or os.getenv("ZHIPU_API_KEY")
-    if not api_key:
-        return {
-            "title": "Configurar ZHIPU_API_KEY",
-            "description": "Por favor añade ZHIPU_API_KEY a tu archivo .env"
-        }
-    
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://open.bigmodel.cn/api/paas/v4/"
+    system_prompt = (
+        "Eres un asistente de productividad. El usuario te dará una frase en lenguaje natural sobre algo que tiene que hacer.\n"
+        "Tu trabajo es extraer un 'titulo' corto y conciso, y una 'descripcion' más detallada.\n"
+        "Debes responder EXCLUSIVAMENTE en formato JSON válido, sin bloques Markdown, con esta estructura exacta:\n"
+        '{"title": "string", "description": "string"}'
     )
-    
-    system_prompt = """
-    Eres un asistente de productividad. El usuario te dará una frase en lenguaje natural sobre algo que tiene que hacer.
-    Tu trabajo es extraer un 'titulo' corto y conciso, y una 'descripcion' más detallada.
-    Debes responder EXCLUSIVAMENTE en formato JSON válido, sin Markdown, con esta estructura exacta:
-    {"title": "string", "description": "string"}
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model="glm-4-flash",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
+
+    zhipu_key = settings.ZHIPU_API_KEY or os.getenv("ZHIPU_API_KEY")
+    if zhipu_key:
+        client = OpenAI(
+            api_key=zhipu_key,
+            base_url="https://open.bigmodel.cn/api/paas/v4/"
         )
-        content = response.choices[0].message.content.strip()
-        if content.startswith("```json"):
-            content = content.replace("```json", "").replace("```", "").strip()
-        elif content.startswith("```"):
-            content = content.replace("```", "").strip()
-        
-        return json.loads(content)
-    except Exception as e:
-        print(f"Error en suggest_task_ai: {e}")
-        return {
-            "title": "Error extrayendo tarea con Zhipu AI",
-            "description": str(e)
-        }
+        for model_name in ["glm-4-flash", "glm-4", "glm-4-air", "glm-4-plus", "chatglm_turbo"]:
+            try:
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                )
+                content = response.choices[0].message.content.strip()
+                if content.startswith("```json"):
+                    content = content.replace("```json", "").replace("```", "").strip()
+                elif content.startswith("```"):
+                    content = content.strip("` \n")
+                
+                return json.loads(content)
+            except Exception as inner_err:
+                print(f"Intento Zhipu con {model_name} falló: {inner_err}")
+                continue
+
+    # Fallback secundario con Gemini AI si Zhipu no tiene el modelo habilitado
+    if settings.GEMINI_API_KEY:
+        try:
+            gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            full_prompt = f"{system_prompt}\nFrase del usuario: '{prompt}'"
+            for model_name in ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']:
+                try:
+                    res = gemini_client.models.generate_content(
+                        model=model_name,
+                        contents=full_prompt
+                    )
+                    if res and res.text:
+                        txt = res.text.strip()
+                        if txt.startswith("```json"):
+                            txt = txt.replace("```json", "").replace("```", "").strip()
+                        elif txt.startswith("```"):
+                            txt = txt.strip("` \n")
+                        return json.loads(txt)
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error fallback Gemini: {e}")
+
+    return {
+        "title": "Error extrayendo tarea con IA",
+        "description": "Por favor revisa la configuración de tu clave de API."
+    }
 
 def update_task(session: Session, task_id: int, task_in: TaskUpdate) -> Task | None:
     task_db = get_task_by_id(session, task_id)
