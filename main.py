@@ -26,7 +26,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     # Durante desarrollo acepta de cualquier Frontend Angular local
-    allow_origins=["http://localhost:4200", "http://localhost:8080"], 
+    allow_origins=["http://localhost:4200", "http://localhost:8080", "https://cody-apps-internet-frontend-ng-tau.vercel.app"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
