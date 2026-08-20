@@ -43,3 +43,11 @@ def read_root():
 # IMPORTANTE: Aquí conectamos el router global con todas nuestras carpetas /api
 from app.api.main_router import api_router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Endpoint directo para sugerencia de tareas en lenguaje natural (Zhipu AI GLM-4-Flash)
+from app.models.task import PromptRequest
+from app.services import task_service
+
+@app.post("/api/tasks/ai-suggest")
+def suggest_task_direct(request: PromptRequest):
+    return task_service.suggest_task_ai(prompt=request.prompt)

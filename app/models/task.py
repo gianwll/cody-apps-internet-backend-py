@@ -25,3 +25,7 @@ class TaskUpdate(SQLModel):
     title: Optional[str] = None
     description: Optional[str] = None
     completed: Optional[bool] = None
+
+# Schema para Petición de Sugerencia IA en lenguaje natural
+class PromptRequest(SQLModel):
+    prompt: str

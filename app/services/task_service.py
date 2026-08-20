@@ -53,6 +53,53 @@ def create_task_ai(session: Session, task_in: TaskCreate) -> Task:
     session.refresh(task_db)
     return task_db
 
+def suggest_task_ai(prompt: str) -> dict:
+    import json
+    import os
+    from openai import OpenAI
+
+    api_key = settings.ZHIPU_API_KEY or os.getenv("ZHIPU_API_KEY")
+    if not api_key:
+        return {
+            "title": "Configurar ZHIPU_API_KEY",
+            "description": "Por favor añade ZHIPU_API_KEY a tu archivo .env"
+        }
+    
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://open.bigmodel.cn/api/paas/v4/"
+    )
+    
+    system_prompt = """
+    Eres un asistente de productividad. El usuario te dará una frase en lenguaje natural sobre algo que tiene que hacer.
+    Tu trabajo es extraer un 'titulo' corto y conciso, y una 'descripcion' más detallada.
+    Debes responder EXCLUSIVAMENTE en formato JSON válido, sin Markdown, con esta estructura exacta:
+    {"title": "string", "description": "string"}
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="glm-4-flash",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content.strip()
+        if content.startswith("```json"):
+            content = content.replace("```json", "").replace("```", "").strip()
+        elif content.startswith("```"):
+            content = content.replace("```", "").strip()
+        
+        return json.loads(content)
+    except Exception as e:
+        print(f"Error en suggest_task_ai: {e}")
+        return {
+            "title": "Error extrayendo tarea con Zhipu AI",
+            "description": str(e)
+        }
+
 def update_task(session: Session, task_id: int, task_in: TaskUpdate) -> Task | None:
     task_db = get_task_by_id(session, task_id)
     if not task_db:

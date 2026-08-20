@@ -2,7 +2,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from app.api.deps import SessionDep, CurrentUser
-from app.models.task import Task, TaskCreate, TaskPublic, TaskUpdate
+from app.models.task import Task, TaskCreate, TaskPublic, TaskUpdate, PromptRequest
 from app.services import task_service
 
 router = APIRouter()
@@ -25,6 +25,13 @@ def crear_tarea_con_ia(session: SessionDep, current_user: CurrentUser, task_in: 
     Requiere que la variable GEMINI_API_KEY esté configurada.
     """
     return task_service.create_task_ai(session=session, task_in=task_in)
+
+@router.post("/ai-suggest")
+def suggest_task(request: PromptRequest, current_user: CurrentUser) -> Any:
+    """
+    Recibe un texto en lenguaje natural y Zhipu AI (GLM-4-Flash) extrae el Título y la Descripción estructurados en JSON.
+    """
+    return task_service.suggest_task_ai(prompt=request.prompt)
 
 @router.patch("/{task_id}", response_model=TaskPublic)
 def actualizar_tarea(session: SessionDep, current_user: CurrentUser, task_id: int, task_in: TaskUpdate) -> Any:
